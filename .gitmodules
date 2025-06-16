@@ -1,3 +1,5 @@
 [submodule "api"]
-	path = api
-	url = https://github.com/peteywee/api
+    path = api
+    url = https://github.com/peteywee/api
+    branch = main
+	update = merge
