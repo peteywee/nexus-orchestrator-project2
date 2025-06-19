@@ -1,0 +1,71 @@
+name: CI/CD WebSocket Backend Deployment
+
+on:
+  push:
+    branches:
+      - main # This workflow triggers on pushes to the 'main' branch
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest # GitHub-hosted runner
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4 # Use v4 for better stability and submodule support
+      with:
+        # Ensure submodules are pulled if your backend or other parts depend on them
+        # For the current gpt-nexus/Dockerfile, submodules are not directly needed inside the Docker context.
+        # However, if other parts of your project (like agents) become part of the build, keep this.
+        submodules: recursive 
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3 # Latest stable for build caching and multi-platform builds
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3 # Latest stable for Docker Hub authentication
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5 # Latest stable for building and pushing images
+      with:
+        push: true
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/nexus-websocket-backend:${{ github.sha }} # Tag with unique commit SHA
+          ${{ secrets.DOCKERHUB_USERNAME }}/nexus-websocket-backend:latest            # Also tag as latest
+        context: ./gpt-nexus/ # IMPORTANT: Points to the directory containing your backend code and Dockerfile
+        file: ./gpt-nexus/Dockerfile # IMPORTANT: Points to the Dockerfile for your backend
+
+    - name: Deploy Backend to DigitalOcean Droplet
+      uses: appleboy/ssh-action@v1.2.0 # Recommended: Use a recent stable version
+      with:
+        host: ${{ secrets.DO_SSH_HOST }}
+        username: ${{ secrets.DO_SSH_USER }}
+        key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+        script: |
+          # --- Ensure Docker Daemon is Running on your Droplet ---
+          # This line checks if docker service is active and starts it if not.
+          # Use 'sudo' if your SSH_USER doesn't have direct docker permissions.
+          systemctl is-active --quiet docker || sudo systemctl start docker || echo "Docker daemon issue. Please check manually."
+
+          # Pull the latest Docker image (using the specific SHA tag for reliability)
+          echo "Pulling latest Docker image..."
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/nexus-websocket-backend:${{ github.sha }}
+
+          # Stop and remove any existing container named 'nexus-websocket-backend'
+          echo "Stopping and removing old container (if exists)..."
+          docker stop nexus-websocket-backend || true
+          docker rm nexus-websocket-backend || true
+
+          # Run the new container
+          # -d: run in detached mode
+          # --name: assign a name to the container
+          # -p 3000:8000: Maps host port 3000 to container port 8000 (as exposed by gpt-nexus/Dockerfile)
+          echo "Running new container..."
+          docker run -d \
+            --name nexus-websocket-backend \
+            -p 3000:8000 \
+            ${{ secrets.DOCKERHUB_USERNAME }}/nexus-websocket-backend:${{ github.sha }}
+
+          echo "Backend deployment completed!"
