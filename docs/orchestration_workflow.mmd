@@ -1,0 +1,50 @@
+
+#### 💾 Save the orchestrator workflow diagram
+```bash
+cat << 'EOF' > docs/orchestration_workflow.mmd
+```mermaid
+flowchart TD
+
+    A1[🖥️ User Submits Task via UI] --> A2[📡 WebSocket connection opened]
+    A2 --> A3[🌐 FastAPI WebSocket Endpoint (websocket_messages.py)]
+    A3 --> A4[📬 Message Broker Client (message_broker_client.py)]
+    A4 --> A5[📤 Task Manager queues job]
+
+    A5 -->|Selects Agent| A6[🤖 Agent Manager]
+    A6 --> B1[gpt-agent_research]
+    A6 --> B2[gpt-agent_strategy]
+    A6 --> B3[gpt-agent_comms]
+    A6 --> B4[gpt-agent_ops_execution]
+
+    subgraph Agents
+        B1
+        B2
+        B3
+        B4
+    end
+
+    B1 --> C1[(📬 RabbitMQ Result Queue)]
+    B2 --> C1
+    B3 --> C1
+    B4 --> C1
+
+    C1 --> D1[📥 WebSocket Broker receives result]
+    D1 --> D2[🧠 Evaluation Service (Optional)]
+    D2 --> D3[(🗂️ Store in Database)]
+    D2 --> D4[(🧾 Save Artifact)]
+
+    D1 --> E1[📡 Push Result to Frontend (WebSocket)]
+    D3 --> E1
+    D4 --> E1
+
+    subgraph Backend
+        A3
+        A4
+        A5
+        A6
+        C1
+        D1
+        D2
+        D3
+        D4
+    end

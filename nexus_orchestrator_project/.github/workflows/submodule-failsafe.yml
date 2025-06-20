@@ -1,0 +1,12 @@
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run submodule failsafe sync
+        run: ./scripts/submodule-failsafe.sh
+
+      # ... your other deploy steps ...

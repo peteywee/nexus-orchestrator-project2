@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-redis
-websockets
-asyncpg
-psycopg2-binary

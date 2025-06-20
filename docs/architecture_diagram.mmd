@@ -1,0 +1,60 @@
+cat << 'EOF' > docs/architecture_diagram.mmd
+```mermaid
+graph TD
+    subgraph Frontend [🖥️ nexusmind-web-ui (React/Vite)]
+        FE_UI[User Interface]
+        FE_WS[nexusAPI.ts (WebSocket Client)]
+    end
+
+    subgraph Orchestrator [🧠 gpt-nexus (FastAPI)]
+        MAIN[main.py]
+        ROUTERS[routers/websocket_messages.py]
+        BROKER[services/message_broker_client.py]
+        TASKMAN[services/task_manager.py]
+        AGENTMGR[services/agent_manager.py]
+        ARTIFACTS[services/artifact_service.py]
+        EVAL[services/evaluation_service.py]
+        LLM[core/llm_abstraction.py]
+        SESSIONMEM[database.py/models.py (Session/UserMemory)]
+    end
+
+    subgraph Agents [🧬 Individual Agents]
+        AG1[gpt-agent_research]
+        AG2[gpt-agent_comms]
+        AG3[gpt-agent_strategy]
+        AG4[gpt-agent_ops_execution]
+    end
+
+    subgraph Infra [🛠️ Infrastructure]
+        DB[(🗄️ Postgres)]
+        MQ[(📬 RabbitMQ)]
+        STORAGE[(🧾 Artifact Storage)]
+    end
+
+    FE_UI --> FE_WS
+    FE_WS -->|WebSocket| ROUTERS
+    ROUTERS --> MAIN
+    ROUTERS --> BROKER
+    BROKER --> TASKMAN
+    TASKMAN --> AGENTMGR
+    AGENTMGR --> AG1
+    AGENTMGR --> AG2
+    AGENTMGR --> AG3
+    AGENTMGR --> AG4
+
+    BROKER --> MQ
+    TASKMAN --> DB
+    SESSIONMEM --> DB
+
+    AG1 -->|Results| MQ
+    AG2 -->|Results| MQ
+    AG3 -->|Results| MQ
+    AG4 -->|Results| MQ
+
+    ARTIFACTS --> STORAGE
+    EVAL --> AGENTMGR
+    EVAL --> DB
+    LLM --> AG1
+    LLM --> AG2
+    LLM --> AG3
+    LLM --> AG4
